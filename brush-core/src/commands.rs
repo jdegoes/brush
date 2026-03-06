@@ -742,6 +742,19 @@ pub(crate) async fn invoke_shell_function(
     Ok(result.into())
 }
 
+#[cfg(target_family = "wasm")]
+pub(crate) async fn invoke_command_in_subshell_and_get_output(
+    _shell: &mut Shell<impl extensions::ShellExtensions>,
+    _params: &ExecutionParameters,
+    _s: String,
+) -> Result<String, error::Error> {
+    Err(error::ErrorKind::NotSupportedOnThisPlatform(
+        "command substitution requires std::io::pipe(), which is not available on wasm",
+    )
+    .into())
+}
+
+#[cfg(not(target_family = "wasm"))]
 pub(crate) async fn invoke_command_in_subshell_and_get_output(
     shell: &mut Shell<impl extensions::ShellExtensions>,
     params: &ExecutionParameters,

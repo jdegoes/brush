@@ -442,6 +442,13 @@ async fn spawn_pipeline_processes(
     // Create pipes to use between commands, but only bother doing so if there's more than one
     // command.
     if pipeline_len > 1 {
+        #[cfg(target_family = "wasm")]
+        return Err(error::ErrorKind::NotSupportedOnThisPlatform(
+            "multi-command pipelines require std::io::pipe(), which is not available on wasm",
+        )
+        .into());
+
+        #[cfg(not(target_family = "wasm"))]
         for _ in 0..(pipeline_len - 1) {
             let (reader, writer) = std::io::pipe()?;
             pipe_readers.push(Some(reader.into()));
@@ -449,6 +456,7 @@ async fn spawn_pipeline_processes(
         }
         // Push `None` to the readers; it will be popped off by the *first* command, which will
         // mean that command gets its stdin from the execution parameters' current stdin.
+        #[cfg(not(target_family = "wasm"))]
         pipe_readers.push(None);
     }
 
@@ -1804,6 +1812,21 @@ const fn get_default_fd_for_redirect_kind(kind: &ast::IoFileRedirectKind) -> She
     }
 }
 
+#[cfg(target_family = "wasm")]
+#[cfg_attr(target_family = "wasm", allow(dead_code))]
+fn setup_process_substitution(
+    _shell: &Shell<impl extensions::ShellExtensions>,
+    _params: &ExecutionParameters,
+    _kind: &ast::ProcessSubstitutionKind,
+    _subshell_cmd: &ast::SubshellCommand,
+) -> Result<(ShellFd, OpenFile), error::Error> {
+    Err(error::ErrorKind::NotSupportedOnThisPlatform(
+        "process substitution requires std::io::pipe(), which is not available on wasm",
+    )
+    .into())
+}
+
+#[cfg(not(target_family = "wasm"))]
 fn setup_process_substitution(
     shell: &Shell<impl extensions::ShellExtensions>,
     params: &ExecutionParameters,
@@ -1857,6 +1880,16 @@ fn setup_process_substitution(
     Ok((candidate_fd_num, target_file))
 }
 
+#[cfg(target_family = "wasm")]
+#[cfg_attr(target_family = "wasm", allow(dead_code))]
+fn setup_open_file_with_contents(_contents: &str) -> Result<OpenFile, error::Error> {
+    Err(error::ErrorKind::NotSupportedOnThisPlatform(
+        "here-docs and here-strings require std::io::pipe(), which is not available on wasm",
+    )
+    .into())
+}
+
+#[cfg(not(target_family = "wasm"))]
 fn setup_open_file_with_contents(contents: &str) -> Result<OpenFile, error::Error> {
     let (reader, mut writer) = std::io::pipe()?;
 
